@@ -26,8 +26,6 @@ namespace FVTIntegrationMiddleware.Middleware
         public async Task InvokeAsync(HttpContext context)
         {
             var requestId = context.Items["RequestId"]?.ToString() ?? Guid.NewGuid().ToString();
-
-            // Find matching route configuration
             var routeConfig = _ruleEngine.GetRouteConfiguration(context.Request.Path);
 
             if (routeConfig != null)
@@ -37,8 +35,6 @@ namespace FVTIntegrationMiddleware.Middleware
                     requestId,
                     routeConfig.RouteId,
                     routeConfig.Direction);
-
-                // Apply request transformations
                 await ApplyTransformations(context, routeConfig, requestId);
             }
 
@@ -74,6 +70,12 @@ namespace FVTIntegrationMiddleware.Middleware
 
                         case "MaskSensitiveData":
                             await MaskSensitiveData(context, transformation, requestId);
+                            break;
+                        case "RemoveJsonField":
+                            await RemoveJsonField(context, transformation, requestId);
+                            break;
+                        case "RenameJsonField":
+                            await RenameJsonField(context, transformation, requestId);
                             break;
 
                         default:
@@ -207,6 +209,69 @@ namespace FVTIntegrationMiddleware.Middleware
                 "[{RequestId}] Sensitive data masked in fields: {Fields}",
                 requestId,
                 string.Join(", ", rule.JsonPaths));
+        }
+
+
+        private async Task RemoveJsonField(HttpContext context, TransformationRule rule, string requestId)
+        {
+            if (context.Request.ContentLength == 0 || string.IsNullOrWhiteSpace(rule.FieldToRemove))
+                return;
+
+            context.Request.EnableBuffering();
+            context.Request.Body.Seek(0, SeekOrigin.Begin);
+
+            using var reader = new StreamReader(context.Request.Body, Encoding.UTF8, leaveOpen: true);
+            var body = await reader.ReadToEndAsync();
+
+            if (string.IsNullOrWhiteSpace(body))
+                return;
+
+            var modifiedBody = _transformationService.RemoveJsonField(body, rule.FieldToRemove);
+
+            var newBodyBytes = Encoding.UTF8.GetBytes(modifiedBody);
+            var newBodyStream = new MemoryStream(newBodyBytes);
+
+            context.Request.Body = newBodyStream;
+            context.Request.ContentLength = newBodyBytes.Length;
+
+            _logger.LogInformation(
+                "[{RequestId}] JSON field removed: {FieldName}",
+                requestId,
+                rule.FieldToRemove);
+        }
+
+        private async Task RenameJsonField(HttpContext context, TransformationRule rule, string requestId)
+        {
+            if (context.Request.ContentLength == 0 ||
+                string.IsNullOrWhiteSpace(rule.OldFieldName) ||
+                string.IsNullOrWhiteSpace(rule.NewFieldName))
+                return;
+
+            context.Request.EnableBuffering();
+            context.Request.Body.Seek(0, SeekOrigin.Begin);
+
+            using var reader = new StreamReader(context.Request.Body, Encoding.UTF8, leaveOpen: true);
+            var body = await reader.ReadToEndAsync();
+
+            if (string.IsNullOrWhiteSpace(body))
+                return;
+
+            var modifiedBody = _transformationService.RenameJsonField(
+                body,
+                rule.OldFieldName,
+                rule.NewFieldName);
+
+            var newBodyBytes = Encoding.UTF8.GetBytes(modifiedBody);
+            var newBodyStream = new MemoryStream(newBodyBytes);
+
+            context.Request.Body = newBodyStream;
+            context.Request.ContentLength = newBodyBytes.Length;
+
+            _logger.LogInformation(
+                "[{RequestId}] JSON field renamed: {OldName} → {NewName}",
+                requestId,
+                rule.OldFieldName,
+                rule.NewFieldName);
         }
     }
 }

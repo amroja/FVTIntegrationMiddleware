@@ -13,5 +13,8 @@
         public string? ParamValue { get; set; }
         public Dictionary<string, object>? Metadata { get; set; }
         public List<string>? JsonPaths { get; set; }
+        public string? FieldToRemove { get; set; }
+        public string? OldFieldName { get; set; }
+        public string? NewFieldName { get; set; }
     }
 }

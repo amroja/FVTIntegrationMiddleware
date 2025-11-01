@@ -1,0 +1,337 @@
+# ============================================
+# FVT Integration Middleware - Test Requests
+# ============================================
+
+# =====================================
+# 1. HEALTH CHECK
+# =====================================
+
+### Get Health Status
+GET http://localhost:5135/api/health
+Accept: application/json
+
+### Get All Routes
+GET http://localhost:5135/api/health/routes
+Accept: application/json
+
+### Get Specific Route
+GET http://localhost:5135/api/health/routes/user-service-incoming
+Accept: application/json
+
+
+### Create User - WITH API Key (Should Work)
+POST http://localhost:5135/api/users/create
+Content-Type: application/json
+X-API-Key: my-secret-api-key-123
+{
+  "email": "ahmad@example.com",
+  "fullName": "Ahmad Ali",
+  "country": "US",
+  "phoneNumber": "+1234567890"
+}
+
+### Create User - WITHOUT API Key (Should Fail - 400)
+POST http://localhost:5135/api/users/create
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "fullName": "Test User",
+  "country": "US"
+}
+
+### Create User - UK Country Code
+POST http://localhost:5135/api/users/create
+Content-Type: application/json
+X-API-Key: my-secret-api-key-123
+
+{
+  "email": "john@example.com",
+  "fullName": "John Smith",
+  "country": "UK",
+  "phoneNumber": "+447123456789"
+}
+
+### Get User
+GET http://localhost:5135/api/users/user-123
+X-API-Key: my-secret-api-key-123
+
+### Update User
+PUT http://localhost:5135/api/users/user-456
+Content-Type: application/json
+X-API-Key: my-secret-api-key-123
+
+{
+  "email": "updated@example.com",
+  "fullName": "Updated Name",
+  "country": "US"
+}
+
+
+# =====================================
+# 3. PAYMENT SERVICE API (Outgoing)
+#CVV¡ Authorization
+# =====================================
+
+### Process Payment - Credit Card Will Be Masked
+POST http://localhost:5135/api/payments/process
+Content-Type: application/json
+
+{
+  "creditCard": "1234567890123456",
+  "cvv": "123",
+  "amount": 250.50,
+  "currency": "USD",
+  "cardholderName": "Ahmad Ali"
+}
+
+### Process Payment - Without Currency (Will Add USD)
+POST http://localhost:5135/api/payments/process
+Content-Type: application/json
+
+{
+  "creditCard": "9876543210987654",
+  "cvv": "456",
+  "amount": 100.00,
+  "cardholderName": "Sarah Ahmed"
+}
+
+### Get Transaction
+GET http://localhost:5135/api/payments/transaction/TXN-12345678
+
+### Refund Payment
+POST http://localhost:5135/api/payments/refund
+Content-Type: application/json
+
+{
+  "transactionId": "TXN-12345678",
+  "amount": 50.00,
+  "reason": "Customer request"
+}
+
+
+# =====================================
+# 4. NOTIFICATION SERVICE API (Outgoing)
+# mail -> email¡ X-API-Key
+# =====================================
+
+### Send Email Notification - "mail" will be converted to "email"
+POST http://localhost:5135/api/notifications/send
+Content-Type: application/json
+
+{
+  "type": "mail",
+  "recipient": "user@example.com",
+  "subject": "Welcome to our service",
+  "message": "Thank you for signing up!",
+  "metadata": {
+    "userId": "user-123",
+    "campaign": "welcome-series"
+  }
+}
+
+### Send SMS Notification
+POST http://localhost:5135/api/notifications/send
+Content-Type: application/json
+
+{
+  "type": "sms",
+  "recipient": "+962791234567",
+  "subject": "Verification Code",
+  "message": "Your verification code is: 123456"
+}
+
+### Send Push Notification
+POST http://localhost:5135/api/notifications/send
+Content-Type: application/json
+
+{
+  "type": "push",
+  "recipient": "device-token-xyz",
+  "subject": "New Message",
+  "message": "You have a new message from Ahmad"
+}
+
+### Send Bulk Notifications
+POST http://localhost:5135/api/notifications/send-bulk
+Content-Type: application/json
+
+{
+  "type": "email",
+  "recipients": [
+    "user1@example.com",
+    "user2@example.com",
+    "user3@example.com"
+  ],
+  "subject": "System Maintenance Notice",
+  "message": "Our system will be under maintenance on Sunday from 2 AM to 4 AM"
+}
+
+### Get Notification Status
+GET http://localhost:5135/api/notifications/status/NOT-12345678
+
+
+# =====================================
+# 5. DIRECT API CALLS (Bypass Middleware)
+# =====================================
+
+### Direct Call - User Service (No Transformation)
+POST http://localhost:5135/internal/users/create
+Content-Type: application/json
+
+{
+  "email": "direct@example.com",
+  "fullName": "Direct User",
+  "country": "US"
+}
+
+### Direct Call - Payment Service (No Masking)
+POST http://localhost:5135/external/payments/process
+Content-Type: application/json
+
+{
+  "creditCard": "1234567890123456",
+  "cvv": "123",
+  "amount": 100.00,
+  "currency": "USD",
+  "cardholderName": "Test User"
+}
+
+### Direct Call - Notification Service (No Conversion)
+POST http://localhost:5135/external/notifications/send
+Content-Type: application/json
+
+{
+  "type": "mail",
+  "recipient": "test@example.com",
+  "subject": "Test",
+  "message": "Direct call test"
+}
+
+
+### Test 1: Rename "type" to "emailType" in Notification
+POST http://localhost:5135/api/notifications/send
+Content-Type: application/json
+
+{
+  "type": "email",
+  "recipient": "user@example.com",
+  "subject": "Test",
+  "message": "Hello World"
+}
+
+
+
+### Test 2: Multiple Renames in Demo Route
+POST http://localhost:5135/api/demo/send
+Content-Type: application/json
+
+{
+  "type": "sms",
+  "msg": "Quick message",
+  "tempField": "This will be removed",
+  "debugInfo": "Debug data"
+}
+
+
+
+
+
+### Test 3: Remove Specific Fields
+POST http://localhost:5135/api/demo/send
+Content-Type: application/json
+
+{
+  "type": "email",
+  "recipient": "test@example.com",
+  "message": "Important message",
+  "tempField": "Remove this",
+  "debugInfo": {
+    "timestamp": "2025-01-01",
+    "source": "internal"
+  },
+  "keepThis": "Should remain"
+}
+
+
+### Test 4: Rename in Nested Structure
+POST http://localhost:5135/api/demo/complex
+Content-Type: application/json
+
+{
+  "user": {
+    "type": "admin",
+    "details": {
+      "type": "full-access"
+    }
+  },
+  "msg": "System notification"
+}
+
+
+### Test 5: Rename in Array Elements
+POST http://localhost:5135/api/demo/batch
+Content-Type: application/json
+
+{
+  "notifications": [
+    {
+      "type": "email",
+      "msg": "Message 1"
+    },
+    {
+      "type": "sms",
+      "msg": "Message 2"
+    }
+  ]
+}
+
+
+### Test 6: Remove + Rename + Modify in One Request
+POST http://localhost:5135/api/demo/full
+Content-Type: application/json
+
+{
+  "type": "email",
+  "msg": "Hello",
+  "tempField": "Remove me",
+  "debugInfo": "Debug",
+  "status": "draft"
+}
+
+
+### Test 7: Field Doesn't Exist 
+POST http://localhost:5135/api/demo/missing
+Content-Type: application/json
+
+{
+  "recipient": "test@example.com",
+  "message": "No type field here"
+}
+
+
+
+### Test 8: Empty Object
+POST http://localhost:5135/api/demo/empty
+Content-Type: application/json
+
+{}
+
+
+### Test 10: Large JSON with Many Renames
+POST http://localhost:5135/api/demo/large
+Content-Type: application/json
+
+{
+  "type": "email",
+  "msg": "Message",
+  "data": {
+    "type": "user",
+    "msg": "User data",
+    "items": [
+      {"type": "item1", "msg": "First"},
+      {"type": "item2", "msg": "Second"},
+      {"type": "item3", "msg": "Third"}
+    ]
+  }
+}

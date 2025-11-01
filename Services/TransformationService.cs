@@ -99,6 +99,85 @@ namespace FVTIntegrationMiddleware.Services
             }
         }
 
+        public string RemoveJsonField(string json, string jsonPath)
+        {
+            try
+            {
+                var jObject = JToken.Parse(json);
+                var tokens = jObject.SelectTokens(jsonPath).ToList();
+
+                if (!tokens.Any())
+                {
+                    _logger.LogWarning("No tokens found to remove at path: {JsonPath}", jsonPath);
+                    return json;
+                }
+
+                foreach (var token in tokens)
+                {
+                    if (token.Parent is JProperty property)
+                    {
+                        property.Remove();
+                        _logger.LogDebug("Removed field at path: {JsonPath}", jsonPath);
+                    }
+                }
+
+                return jObject.ToString();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error removing JSON field at path: {JsonPath}", jsonPath);
+                return json;
+            }
+        }
+
+        public string RenameJsonField(string json, string oldFieldName, string newFieldName)
+        {
+            try
+            {
+                var jObject = JToken.Parse(json);
+
+                RenameFieldRecursive(jObject, oldFieldName, newFieldName);
+
+                _logger.LogDebug("Renamed field from '{OldName}' to '{NewName}'", oldFieldName, newFieldName);
+                return jObject.ToString();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error renaming JSON field from '{OldName}' to '{NewName}'",
+                    oldFieldName, newFieldName);
+                return json;
+            }
+        }
+
+        private void RenameFieldRecursive(JToken token, string oldName, string newName)
+        {
+            if (token is JObject jObject)
+            {
+                var properties = jObject.Properties().ToList();
+
+                foreach (var property in properties)
+                {
+                    if (property.Name == oldName)
+                    {
+                        var value = property.Value;
+                        property.Remove();
+                        jObject[newName] = value;
+                    }
+                    else
+                    {
+                        RenameFieldRecursive(property.Value, oldName, newName);
+                    }
+                }
+            }
+            else if (token is JArray jArray)
+            {
+                foreach (var item in jArray)
+                {
+                    RenameFieldRecursive(item, oldName, newName);
+                }
+            }
+        }
+
         private string MaskValue(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
