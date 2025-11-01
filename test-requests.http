@@ -33,7 +33,6 @@ X-API-Key: my-secret-api-key-123
 ### Create User - WITHOUT API Key (Should Fail - 400)
 POST http://localhost:5135/api/users/create
 Content-Type: application/json
-
 {
   "email": "test@example.com",
   "fullName": "Test User",
